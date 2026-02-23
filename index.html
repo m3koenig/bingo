@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Generator v0.3.0</title>
+    <title>Bingo Generator v0.5.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .bingo-grid {
@@ -35,7 +35,6 @@
             color: white;
             border-color: #1d4ed8;
             transform: scale(0.95);
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
         }
         .bingo-cell.free {
             background-color: #f8fafc;
@@ -43,57 +42,97 @@
             color: #475569;
             border-style: dashed;
         }
-        .bingo-cell:hover:not(.marked) {
-            border-color: #94a3b8;
-            background-color: #f1f5f9;
+        
+        /* Zeilennummern-Styling */
+        .editor-container {
+            position: relative;
+            display: flex;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: #f8fafc;
+        }
+        .line-numbers {
+            width: 3rem;
+            padding: 0.75rem 0;
+            text-align: right;
+            background: #f1f5f9;
+            color: #94a3b8;
+            font-family: monospace;
+            font-size: 0.875rem;
+            line-height: 1.5rem;
+            user-select: none;
+            border-right: 1px solid #e2e8f0;
+        }
+        .line-numbers span {
+            display: block;
+            padding-right: 0.5rem;
+        }
+        #itemInput {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 0.875rem;
+            line-height: 1.5rem;
+            resize: none;
+            overflow-y: auto;
+        }
+        
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; padding: 0; }
+            .lg\:col-span-8 { width: 100%; }
         }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-4 md:p-8 text-gray-800">
 
     <div class="max-w-5xl mx-auto">
-        <header class="mb-8 text-center">
+        <header class="mb-8 text-center no-print">
             <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Bingo Generator</h1>
             <p class="text-gray-500 mt-1">Erstelle, teile und spiele Bingo mit deinen Freunden.</p>
-            <div class="mt-3 text-[10px] font-mono bg-gray-200 text-gray-600 inline-block px-2 py-0.5 rounded uppercase tracking-wider">Version 0.3.0</div>
+            <div class="mt-3 text-[10px] font-mono bg-gray-200 text-gray-600 inline-block px-2 py-0.5 rounded uppercase tracking-wider">Version 0.5.0</div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <!-- Sidebar: Konfiguration -->
-            <div class="lg:col-span-4 space-y-6">
+            <div class="lg:col-span-4 space-y-6 no-print">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                     <div class="flex justify-between items-center mb-3">
-                        <label class="block text-sm font-semibold text-gray-700">Begriffe</label>
-                        <button id="demoBtn" class="text-xs text-blue-600 hover:underline font-medium">Demo-Liste laden</button>
+                        <label class="block text-sm font-semibold text-gray-700">Begriffe (min. 24)</label>
+                        <div class="flex gap-3">
+                            <button id="shuffleListBtn" class="text-xs text-orange-600 hover:underline font-medium" title="Zeilen im Editor mischen">🔀 Mischen</button>
+                            <button id="demoBtn" class="text-xs text-blue-600 hover:underline font-medium">Demo-Liste</button>
+                        </div>
                     </div>
-                    <textarea id="itemInput" rows="8" class="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all" placeholder="Ein Begriff pro Zeile..."></textarea>
+                    
+                    <div class="editor-container focus-within:ring-2 focus-within:ring-blue-500">
+                        <div id="lineNumberGutter" class="line-numbers">
+                            <span>1</span>
+                        </div>
+                        <textarea id="itemInput" rows="10" placeholder="Ein Begriff pro Zeile..." spellcheck="false"></textarea>
+                    </div>
                     
                     <div class="mt-4">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2">Zufalls-Seed</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2 text-xs">Zufalls-Seed</label>
                         <div class="flex gap-2">
                             <input type="text" id="seedInput" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm font-mono" placeholder="Zufällig...">
-                            <button id="randomSeedBtn" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors" title="Neuer Zufall">
-                                🎲
-                            </button>
+                            <button id="randomSeedBtn" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors" title="Neuer Zufall">🎲</button>
                         </div>
                     </div>
 
-                    <button id="generateBtn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md shadow-blue-200 transition-all active:transform active:scale-[0.98]">
+                    <button id="generateBtn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all active:scale-[0.98]">
                         Karte generieren
                     </button>
                 </div>
 
-                <!-- Sharing Bereich -->
                 <div id="shareSection" class="bg-blue-50 p-5 rounded-2xl border border-blue-100 hidden">
-                    <h3 class="text-sm font-bold text-blue-900 mb-3 flex items-center">
-                        <span class="mr-2">🔗</span> Karte teilen
-                    </h3>
-                    <div class="space-y-3">
-                        <input type="text" id="shareUrl" readonly class="w-full p-2 text-xs border border-blue-200 rounded-lg bg-white/80 focus:outline-none">
-                        <button id="copyBtn" class="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
-                            Link kopieren
-                        </button>
-                    </div>
+                    <h3 class="text-sm font-bold text-blue-900 mb-3 flex items-center">🔗 Karte teilen</h3>
+                    <input type="text" id="shareUrl" readonly class="w-full p-2 text-xs border border-blue-200 rounded-lg bg-white/80 mb-3">
+                    <button id="copyBtn" class="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors">Link kopieren</button>
                 </div>
             </div>
 
@@ -102,14 +141,13 @@
                 <div id="bingoContainer" class="bg-white p-4 md:p-10 rounded-3xl shadow-xl border border-gray-100">
                     <div id="grid" class="bingo-grid">
                         <div class="col-span-5 text-center py-20 text-gray-400">
-                            <p class="text-lg">Bereit für ein Spiel?</p>
-                            <p class="text-sm mt-2">Gib Begriffe ein oder nutze die Demo-Liste.</p>
+                            <p class="text-lg">Bingo-Karte erscheint hier</p>
                         </div>
                     </div>
                     
                     <div class="mt-8 flex justify-between items-center text-xs text-gray-400 border-t pt-4">
-                        <span id="cardInfo">Keine Karte generiert</span>
-                        <button onclick="window.print()" class="hover:text-gray-600 flex items-center gap-1">
+                        <span id="cardInfo">Version 0.5.0</span>
+                        <button onclick="window.print()" class="no-print hover:text-gray-600 flex items-center gap-1">
                             <span>🖨️</span> Drucken
                         </button>
                     </div>
@@ -119,19 +157,31 @@
     </div>
 
     <script>
-        const DEMO_ITEMS = [
-            "Kaffeemaschine kaputt", "Meeting zieht sich", "Mute-Button vergessen",
-            "Jemand sagt 'Synergie'", "Bildschirm teilen klappt nicht", "Hört ihr mich?",
-            "Überstunden", "Obstkorb ist leer", "Deadline verschoben",
-            "Kind im Hintergrund", "Katze auf Tastatur", "Internet-Lag",
-            "Klimaanlage zu kalt", "Mittagspause verpasst", "Excel stürzt ab",
-            "Sarkastische E-Mail", "Tastatur-Tippen laut", "Schlechtes WLAN",
-            "Smalltalk über Wetter", "Zuspätkommen", "Feierabend!",
-            "Wochenende geplant", "Urlaubsreif", "Kuchen in der Küche",
-            "Drucker papierstau", "Passwort vergessen", "To-Do Liste voll"
-        ];
+        const DEMO_ITEMS = ["Kaffeemaschine kaputt", "Meeting zieht sich", "Mute-Button vergessen", "Jemand sagt 'Synergie'", "Bildschirm teilen klappt nicht", "Hört ihr mich?", "Überstunden", "Obstkorb ist leer", "Deadline verschoben", "Kind im Hintergrund", "Katze auf Tastatur", "Internet-Lag", "Klimaanlage zu kalt", "Mittagspause verpasst", "Excel stürzt ab", "Sarkastische E-Mail", "Tastatur-Tippen laut", "Schlechtes WLAN", "Smalltalk über Wetter", "Zuspätkommen", "Feierabend!", "Wochenende geplant", "Urlaubsreif", "Kuchen in der Küche", "Drucker papierstau", "Passwort vergessen", "To-Do Liste voll"];
 
-        // --- Hilfsfunktionen für Seeded Random ---
+        const itemInput = document.getElementById('itemInput');
+        const gutter = document.getElementById('lineNumberGutter');
+        const seedInput = document.getElementById('seedInput');
+        const gridContainer = document.getElementById('grid');
+        const shareSection = document.getElementById('shareSection');
+        const shareUrlInput = document.getElementById('shareUrl');
+
+        // --- Editor Funktionen ---
+        function updateLineNumbers() {
+            const lines = itemInput.value.split('\n').length;
+            let gutterContent = '';
+            for (let i = 1; i <= Math.max(lines, 1); i++) {
+                gutterContent += `<span>${i}</span>`;
+            }
+            gutter.innerHTML = gutterContent;
+        }
+
+        itemInput.oninput = updateLineNumbers;
+        itemInput.onscroll = () => {
+            gutter.scrollTop = itemInput.scrollTop;
+        };
+
+        // --- Zufall & Hash Funktionen ---
         function sfc32(a, b, c, d) {
             return function() {
               a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
@@ -154,153 +204,116 @@
                 h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
                 h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
             }
-            h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
-            h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
-            h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
-            h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
             return [(h1>>>0), (h2>>>0), (h3>>>0), (h4>>>0)];
         }
 
-        const itemInput = document.getElementById('itemInput');
-        const seedInput = document.getElementById('seedInput');
-        const generateBtn = document.getElementById('generateBtn');
-        const demoBtn = document.getElementById('demoBtn');
-        const randomSeedBtn = document.getElementById('randomSeedBtn');
-        const gridContainer = document.getElementById('grid');
-        const shareSection = document.getElementById('shareSection');
-        const shareUrlInput = document.getElementById('shareUrl');
-        const copyBtn = document.getElementById('copyBtn');
-        const cardInfo = document.getElementById('cardInfo');
+        /**
+         * Reinigt einen String von führenden Markdown-Bullets
+         */
+        function cleanItem(str) {
+            return str.replace(/^-\s*/, '').trim();
+        }
 
-        function shuffle(array, seed) {
-            const seedData = cyrb128(seed);
-            const rand = sfc32(seedData[0], seedData[1], seedData[2], seedData[3]);
-            let currentIndex = array.length, randomIndex;
-            while (currentIndex != 0) {
-                randomIndex = Math.floor(rand() * currentIndex);
-                currentIndex--;
-                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+        /**
+         * Mischt die Begriffe direkt im Textfeld (Echter Zufall, nicht seed-basiert)
+         */
+        function shuffleTextarea() {
+            const lines = itemInput.value.split('\n').filter(l => l.trim() !== "");
+            if (lines.length === 0) return;
+            
+            for (let i = lines.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [lines[i], lines[j]] = [lines[j], lines[i]];
             }
-            return array;
+            itemInput.value = lines.join('\n');
+            updateLineNumbers();
         }
 
         function generateCard(shouldUpdateUrl = true) {
-            const text = itemInput.value.trim();
-            let items = text.split('\n').map(i => i.trim()).filter(i => i !== "");
-            
-            if (items.length < 24) {
-                // Nur warnen, wenn der User manuell klickt
-                if(shouldUpdateUrl) alert("Bitte gib mindestens 24 Begriffe ein.");
+            const rawLines = itemInput.value.split('\n').filter(i => i.trim() !== "");
+            const items = rawLines.map(cleanItem);
+
+            if (items.length < 24 && shouldUpdateUrl) {
+                alert("Mindestens 24 Begriffe nötig!");
                 return;
             }
 
-            let seed = seedInput.value.trim();
-            if (!seed) {
-                seed = Math.random().toString(36).substring(7);
-                seedInput.value = seed;
-            }
+            let seed = seedInput.value.trim() || Math.random().toString(36).substring(7);
+            seedInput.value = seed;
 
-            const shuffled = shuffle([...items], seed);
-            const cardItems = shuffled.slice(0, 24);
-            cardItems.splice(12, 0, "FREIFELD"); 
-
-            renderGrid(cardItems);
-            cardInfo.innerText = `Seed: ${seed} | ${items.length} Begriffe`;
+            const seedData = cyrb128(seed);
+            const rand = sfc32(seedData[0], seedData[1], seedData[2], seedData[3]);
             
-            if (shouldUpdateUrl) {
-                updateUrl(text, seed);
-            }
-        }
+            // Seeded shuffle
+            const shuffled = [...items].sort(() => rand() - 0.5);
+            const cardItems = shuffled.slice(0, 24);
+            cardItems.splice(12, 0, "FREI");
 
-        function renderGrid(items) {
             gridContainer.innerHTML = '';
-            items.forEach((item, index) => {
+            cardItems.forEach((item, index) => {
                 const cell = document.createElement('div');
-                cell.className = 'bingo-cell rounded-xl shadow-sm border';
-                if (index === 12) {
-                    cell.classList.add('free');
-                    cell.innerHTML = '<span class="text-lg">⭐</span>';
-                } else {
-                    cell.innerText = item;
-                    cell.onclick = () => cell.classList.toggle('marked');
-                }
+                cell.className = `bingo-cell rounded-xl border ${index === 12 ? 'free' : ''}`;
+                cell.innerText = index === 12 ? "⭐" : item;
+                if(index !== 12) cell.onclick = () => cell.classList.toggle('marked');
                 gridContainer.appendChild(cell);
             });
-        }
 
-        function updateUrl(items, seed) {
-            const baseUrl = window.location.origin + window.location.pathname;
-            const encodedItems = btoa(unescape(encodeURIComponent(items)));
-            const url = `${baseUrl}?seed=${encodeURIComponent(seed)}&items=${encodedItems}`;
-            
-            shareUrlInput.value = url;
-            shareSection.classList.remove('hidden');
-            
-            // Push to history without reload
-            window.history.replaceState({ seed, items: encodedItems }, '', url);
-        }
-
-        function loadFromUrl() {
-            const params = new URLSearchParams(window.location.search);
-            const seed = params.get('seed');
-            const encodedItems = params.get('items');
-
-            let hasData = false;
-
-            if (encodedItems) {
+            if (shouldUpdateUrl) {
                 try {
-                    const decodedItems = decodeURIComponent(escape(atob(encodedItems)));
-                    itemInput.value = decodedItems;
-                    hasData = true;
-                } catch (e) { console.error("Item-Parsing-Fehler", e); }
-            }
-
-            if (seed) {
-                seedInput.value = seed;
-                hasData = true;
-            }
-
-            if (hasData) {
-                // Wenn wir Daten aus der URL haben, generieren wir sofort, 
-                // updaten aber die URL nicht nochmal (verhindert Loops)
-                generateCard(false);
-                // Share Section trotzdem zeigen, falls wir im "View"-Modus sind
-                if (encodedItems && seed) {
-                    const url = window.location.href;
-                    shareUrlInput.value = url;
+                    const encoded = btoa(unescape(encodeURIComponent(itemInput.value.trim())));
+                    const urlObj = new URL(window.location.origin + window.location.pathname);
+                    urlObj.searchParams.set('seed', seed);
+                    urlObj.searchParams.set('items', encoded);
+                    
+                    const finalUrl = urlObj.toString();
+                    shareUrlInput.value = finalUrl;
                     shareSection.classList.remove('hidden');
+                    
+                    try {
+                        window.history.replaceState({ seed, items: encoded }, '', finalUrl);
+                    } catch (historyErr) {
+                        console.warn("Sandbox restriction: Could not update browser URL.");
+                    }
+                } catch (err) {
+                    console.error("Link generation error:", err);
                 }
             }
         }
 
         // --- Event Listeners ---
-        generateBtn.onclick = () => generateCard(true);
-        
-        randomSeedBtn.onclick = () => {
+        document.getElementById('generateBtn').onclick = () => generateCard(true);
+        document.getElementById('shuffleListBtn').onclick = shuffleTextarea;
+        document.getElementById('demoBtn').onclick = () => {
+            itemInput.value = DEMO_ITEMS.join('\n');
+            updateLineNumbers();
+            generateCard(true);
+        };
+        document.getElementById('randomSeedBtn').onclick = () => {
             seedInput.value = Math.random().toString(36).substring(7);
             generateCard(true);
         };
-
-        demoBtn.onclick = () => {
-            itemInput.value = DEMO_ITEMS.join('\n');
-            seedInput.value = "DemoSeed";
-            generateCard(true);
-        };
-
-        copyBtn.onclick = () => {
+        document.getElementById('copyBtn').onclick = () => {
             shareUrlInput.select();
             document.execCommand('copy');
-            const originalText = copyBtn.innerText;
-            copyBtn.innerText = "Kopiert! ✓";
-            copyBtn.classList.replace('bg-blue-600', 'bg-green-600');
-            setTimeout(() => {
-                copyBtn.innerText = originalText;
-                copyBtn.classList.replace('bg-green-600', 'bg-blue-600');
-            }, 2000);
+            document.getElementById('copyBtn').innerText = "Kopiert!";
+            setTimeout(() => document.getElementById('copyBtn').innerText = "Link kopieren", 2000);
         };
 
-        // Initialer Load
-        window.onload = loadFromUrl;
+        window.onload = () => {
+            const params = new URLSearchParams(window.location.search);
+            const urlItems = params.get('items');
+            const urlSeed = params.get('seed');
+
+            if (urlItems) {
+                try {
+                    itemInput.value = decodeURIComponent(escape(atob(urlItems)));
+                } catch (e) { console.error("URL decoding failed"); }
+            }
+            if (urlSeed) seedInput.value = urlSeed;
+            
+            updateLineNumbers();
+            if (itemInput.value) generateCard(false);
+        };
     </script>
 </body>
 </html>
