@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Generator v0.7.0</title>
+    <title>Bingo Generator v0.9.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .bingo-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
             gap: 0.5rem;
+            transition: all 0.3s ease;
         }
         .bingo-cell {
             aspect-ratio: 1 / 1;
@@ -23,11 +23,10 @@
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             background-color: white;
             user-select: none;
-            overflow: hidden; /* Verhindert Ausbrechen während der Skalierung */
+            overflow: hidden;
             position: relative;
         }
         
-        /* Container für den Text, der skaliert wird */
         .cell-content {
             width: 100%;
             max-height: 100%;
@@ -90,33 +89,80 @@
             overflow-x: auto;
             overflow-y: auto;
         }
+
+        /* Toggle Switch Styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #3b82f6; }
+        input:checked + .slider:before { transform: translateX(26px); }
         
         @media print {
             .no-print { display: none !important; }
             body { background: white; padding: 0; }
-            .lg\:col-span-8 { width: 100%; }
+            .lg\:col-span-8, .lg\:col-span-12 { width: 100%; }
             .bingo-cell { border-color: #000; }
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4 md:p-8 text-gray-800">
+<body class="bg-gray-50 min-h-screen p-4 md:p-8 text-gray-800 transition-colors duration-300">
 
-    <div class="max-w-5xl mx-auto">
-        <header class="mb-8 text-center no-print">
-            <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Bingo Generator</h1>
-            <p class="text-gray-500 mt-1">Erstelle, teile und spiele Bingo mit deinen Freunden.</p>
-            <div class="mt-3 text-[10px] font-mono bg-gray-200 text-gray-600 inline-block px-2 py-0.5 rounded uppercase tracking-wider">Version 0.7.0</div>
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 flex flex-col md:flex-row justify-between items-center no-print gap-4">
+            <div class="text-center md:text-left">
+                <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Bingo Generator</h1>
+                <p class="text-gray-500 text-sm">Version 0.9.0 — Erstellen & Spielen</p>
+            </div>
+            
+            <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400" id="viewLabel">Spiel</span>
+                <label class="switch">
+                    <input type="checkbox" id="editModeToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-900" id="editLabel">Editieren</span>
+            </div>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <!-- Sidebar -->
-            <div class="lg:col-span-4 space-y-6 no-print">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            <!-- Sidebar (Edit Mode only) -->
+            <div id="sidebar" class="lg:col-span-4 space-y-6 no-print">
+                <div class="bg-white p-6 rounded-2xl shadow-md border border-gray-200">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Grid-Größe</label>
+                        <select id="gridSizeSelect" class="w-full p-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="3">3x3 (8 + Frei)</option>
+                            <option value="4">4x4 (16)</option>
+                            <option value="5" selected>5x5 (24 + Frei)</option>
+                        </select>
+                    </div>
+
                     <div class="flex justify-between items-center mb-3">
-                        <label class="block text-sm font-semibold text-gray-700">Begriffe (min. 24)</label>
+                        <label class="block text-sm font-semibold text-gray-700 font-mono text-xs">LISTE</label>
                         <div class="flex gap-3">
-                            <button id="shuffleListBtn" class="text-xs text-orange-600 hover:underline font-medium">🔀 Mischen</button>
-                            <button id="demoBtn" class="text-xs text-blue-600 hover:underline font-medium">Demo-Liste</button>
+                            <button id="shuffleListBtn" class="text-[10px] uppercase tracking-bold text-orange-600 hover:underline font-bold">🔀 Mischen</button>
+                            <button id="demoBtn" class="text-[10px] uppercase tracking-bold text-blue-600 hover:underline font-bold">Demo</button>
                         </div>
                     </div>
                     
@@ -128,7 +174,7 @@
                     </div>
                     
                     <div class="mt-4">
-                        <label class="block text-sm font-semibold text-gray-700 mb-2 text-xs">Zufalls-Seed</label>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2 text-[10px] uppercase">Seed</label>
                         <div class="flex gap-2">
                             <input type="text" id="seedInput" class="flex-1 p-2 border border-gray-200 rounded-lg text-sm font-mono" placeholder="Zufällig...">
                             <button id="randomSeedBtn" class="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">🎲</button>
@@ -136,29 +182,29 @@
                     </div>
 
                     <button id="generateBtn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all active:scale-[0.98]">
-                        Karte generieren
+                        Karte aktualisieren
                     </button>
                 </div>
 
                 <div id="shareSection" class="bg-blue-50 p-5 rounded-2xl border border-blue-100 hidden">
-                    <h3 class="text-sm font-bold text-blue-900 mb-3 flex items-center">🔗 Karte teilen</h3>
-                    <input type="text" id="shareUrl" readonly class="w-full p-2 text-xs border border-blue-200 rounded-lg bg-white/80 mb-3">
+                    <h3 class="text-sm font-bold text-blue-900 mb-3 flex items-center">🔗 Teilen</h3>
+                    <input type="text" id="shareUrl" readonly class="w-full p-2 text-xs border border-blue-200 rounded-lg bg-white/80 mb-3 font-mono">
                     <button id="copyBtn" class="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700">Link kopieren</button>
                 </div>
             </div>
 
             <!-- Main Display -->
-            <div class="lg:col-span-8">
-                <div id="bingoContainer" class="bg-white p-4 md:p-10 rounded-3xl shadow-xl border border-gray-100">
+            <div id="mainDisplay" class="lg:col-span-8 transition-all duration-500">
+                <div id="bingoContainer" class="bg-white p-4 md:p-10 rounded-3xl shadow-xl border border-gray-100 mx-auto max-w-2xl lg:max-w-none">
                     <div id="grid" class="bingo-grid">
                         <div class="col-span-5 text-center py-20 text-gray-400">
-                            <p class="text-lg">Bingo-Karte erscheint hier</p>
+                            <p class="text-lg italic">Bitte Begriffe eingeben und Karte generieren.</p>
                         </div>
                     </div>
                     
-                    <div class="mt-8 flex justify-between items-center text-xs text-gray-400 border-t pt-4">
-                        <span id="cardInfo">Version 0.7.0</span>
-                        <button onclick="window.print()" class="no-print hover:text-gray-600 flex items-center gap-1">
+                    <div class="mt-8 flex justify-between items-center text-[10px] font-mono text-gray-400 border-t pt-4 uppercase tracking-widest">
+                        <span id="cardInfo">Bereit</span>
+                        <button onclick="window.print()" class="no-print hover:text-gray-600 flex items-center gap-1 font-bold">
                             <span>🖨️</span> Drucken
                         </button>
                     </div>
@@ -173,9 +219,14 @@
         const itemInput = document.getElementById('itemInput');
         const gutter = document.getElementById('lineNumberGutter');
         const seedInput = document.getElementById('seedInput');
+        const gridSizeSelect = document.getElementById('gridSizeSelect');
         const gridContainer = document.getElementById('grid');
+        const sidebar = document.getElementById('sidebar');
+        const mainDisplay = document.getElementById('mainDisplay');
+        const editModeToggle = document.getElementById('editModeToggle');
         const shareSection = document.getElementById('shareSection');
         const shareUrlInput = document.getElementById('shareUrl');
+        const cardInfo = document.getElementById('cardInfo');
 
         // --- Editor Logik ---
         function updateLineNumbers() {
@@ -190,7 +241,25 @@
         itemInput.oninput = updateLineNumbers;
         itemInput.onscroll = () => { gutter.scrollTop = itemInput.scrollTop; };
 
-        // --- Hilfsfunktionen ---
+        // --- Modus Logik ---
+        function toggleEditMode() {
+            const isEdit = editModeToggle.checked;
+            if (isEdit) {
+                sidebar.classList.remove('hidden');
+                mainDisplay.classList.replace('lg:col-span-12', 'lg:col-span-8');
+                document.getElementById('editLabel').classList.replace('text-gray-400', 'text-gray-900');
+                document.getElementById('viewLabel').classList.replace('text-gray-900', 'text-gray-400');
+            } else {
+                sidebar.classList.add('hidden');
+                mainDisplay.classList.replace('lg:col-span-8', 'lg:col-span-12');
+                document.getElementById('editLabel').classList.replace('text-gray-900', 'text-gray-400');
+                document.getElementById('viewLabel').classList.replace('text-gray-400', 'text-gray-900');
+            }
+            // Schriftgrößen neu berechnen, da sich die Containerbreite geändert hat
+            setTimeout(recalculateAllFonts, 350);
+        }
+
+        // --- Bingo Logik ---
         function sfc32(a, b, c, d) {
             return function() {
               a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
@@ -220,44 +289,36 @@
             return str.replace(/^-\s*/, '').trim();
         }
 
-        /**
-         * Passt die Schriftgröße einer Zelle dynamisch an den Inhalt an.
-         */
         function autoScaleFont(cell, content) {
-            const maxHeight = cell.clientHeight - 10; // Padding berücksichtigen
+            const maxHeight = cell.clientHeight - 10;
             const maxWidth = cell.clientWidth - 10;
-            let fontSize = 16; // Startgröße (px)
-            const minFontSize = 6; // Untergrenze
-
+            let fontSize = 16;
+            const minFontSize = 6;
             content.style.fontSize = fontSize + 'px';
-
-            // Verkleinern, solange der Inhalt überläuft
-            while (
-                (content.scrollHeight > maxHeight || content.scrollWidth > maxWidth) && 
-                fontSize > minFontSize
-            ) {
+            while ((content.scrollHeight > maxHeight || content.scrollWidth > maxWidth) && fontSize > minFontSize) {
                 fontSize -= 0.5;
                 content.style.fontSize = fontSize + 'px';
             }
         }
 
-        function shuffleTextarea() {
-            const lines = itemInput.value.split('\n').filter(l => l.trim() !== "");
-            if (lines.length === 0) return;
-            for (let i = lines.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [lines[i], lines[j]] = [lines[j], lines[i]];
-            }
-            itemInput.value = lines.join('\n');
-            updateLineNumbers();
+        function recalculateAllFonts() {
+            const cells = document.querySelectorAll('.bingo-cell:not(.free)');
+            cells.forEach(cell => {
+                const content = cell.querySelector('.cell-content');
+                if (content) autoScaleFont(cell, content);
+            });
         }
 
         function generateCard(shouldUpdateUrl = true) {
             const rawLines = itemInput.value.split('\n').filter(i => i.trim() !== "");
             const items = rawLines.map(cleanItem);
+            const size = parseInt(gridSizeSelect.value);
+            const totalCells = size * size;
+            const hasFreeSpace = size % 2 !== 0;
+            const itemsNeeded = hasFreeSpace ? totalCells - 1 : totalCells;
 
-            if (items.length < 24 && shouldUpdateUrl) {
-                alert("Mindestens 24 Begriffe nötig!");
+            if (items.length < itemsNeeded && shouldUpdateUrl) {
+                alert(`Min. ${itemsNeeded} Begriffe benötigt!`);
                 return;
             }
 
@@ -267,35 +328,35 @@
             const seedData = cyrb128(seed);
             const rand = sfc32(seedData[0], seedData[1], seedData[2], seedData[3]);
             const shuffled = [...items].sort(() => rand() - 0.5);
-            const cardItems = shuffled.slice(0, 24);
-            cardItems.splice(12, 0, "FREI");
+            
+            const cardItems = shuffled.slice(0, itemsNeeded);
+            if (hasFreeSpace) {
+                const centerIndex = Math.floor(totalCells / 2);
+                cardItems.splice(centerIndex, 0, "FREI");
+            }
 
+            gridContainer.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
             gridContainer.innerHTML = '';
             
-            // Erst alle Zellen erstellen
             cardItems.forEach((item, index) => {
+                const isFree = hasFreeSpace && index === Math.floor(totalCells / 2);
                 const cell = document.createElement('div');
-                cell.className = `bingo-cell rounded-xl border ${index === 12 ? 'free' : ''}`;
-                
+                cell.className = `bingo-cell rounded-xl border ${isFree ? 'free' : ''}`;
                 const content = document.createElement('div');
                 content.className = 'cell-content';
-                
-                if (index === 12) {
+                if (isFree) {
                     content.innerHTML = '<span class="text-xl">⭐</span>';
                 } else {
                     content.innerText = item;
                     cell.title = item;
                     cell.onclick = () => cell.classList.toggle('marked');
                 }
-                
                 cell.appendChild(content);
                 gridContainer.appendChild(cell);
-                
-                // Nach dem Hinzufügen zum DOM die Größe anpassen
-                if (index !== 12) {
-                    autoScaleFont(cell, content);
-                }
+                if (!isFree) autoScaleFont(cell, content);
             });
+
+            cardInfo.innerText = `GRID: ${size}X${size} | SEED: ${seed}`;
 
             if (shouldUpdateUrl) {
                 try {
@@ -303,26 +364,40 @@
                     const urlObj = new URL(window.location.origin + window.location.pathname);
                     urlObj.searchParams.set('seed', seed);
                     urlObj.searchParams.set('items', encoded);
+                    urlObj.searchParams.set('size', size);
                     const finalUrl = urlObj.toString();
                     shareUrlInput.value = finalUrl;
                     shareSection.classList.remove('hidden');
-                    try { window.history.replaceState({ seed, items: encoded }, '', finalUrl); } catch (e) {}
+                    try { window.history.replaceState({}, '', finalUrl); } catch (e) {}
                 } catch (err) {}
             }
         }
 
-        // Event Listeners
+        // --- Event Listeners ---
+        editModeToggle.onchange = toggleEditMode;
         document.getElementById('generateBtn').onclick = () => generateCard(true);
-        document.getElementById('shuffleListBtn').onclick = shuffleTextarea;
+        document.getElementById('shuffleListBtn').onclick = () => {
+            const lines = itemInput.value.split('\n').filter(l => l.trim() !== "");
+            for (let i = lines.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [lines[i], lines[j]] = [lines[j], lines[i]];
+            }
+            itemInput.value = lines.join('\n');
+            updateLineNumbers();
+            generateCard(true);
+        };
+        
         document.getElementById('demoBtn').onclick = () => {
             itemInput.value = DEMO_ITEMS.join('\n');
             updateLineNumbers();
             generateCard(true);
         };
+        
         document.getElementById('randomSeedBtn').onclick = () => {
             seedInput.value = Math.random().toString(36).substring(7);
             generateCard(true);
         };
+        
         document.getElementById('copyBtn').onclick = () => {
             shareUrlInput.select();
             document.execCommand('copy');
@@ -330,29 +405,34 @@
             setTimeout(() => document.getElementById('copyBtn').innerText = "Link kopieren", 2000);
         };
 
-        // Resize-Handler um Schriftgrößen bei Layout-Änderungen neu zu berechnen
-        let resizeTimer;
-        window.onresize = () => {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(() => {
-                const cells = document.querySelectorAll('.bingo-cell:not(.free)');
-                cells.forEach(cell => {
-                    const content = cell.querySelector('.cell-content');
-                    if (content) autoScaleFont(cell, content);
-                });
-            }, 200);
-        };
+        window.onresize = recalculateAllFonts;
 
         window.onload = () => {
             const params = new URLSearchParams(window.location.search);
             const urlItems = params.get('items');
+            const urlSize = params.get('size');
+            const urlSeed = params.get('seed');
+
             if (urlItems) {
                 try { itemInput.value = decodeURIComponent(escape(atob(urlItems))); } catch (e) {}
             }
-            if (params.get('seed')) seedInput.value = params.get('seed');
+            if (urlSeed) seedInput.value = urlSeed;
+            if (urlSize) gridSizeSelect.value = urlSize;
+            
             updateLineNumbers();
-            if (itemInput.value) generateCard(false);
+
+            if (urlItems && urlSeed) {
+                // Wenn Daten per URL kommen: Im Spiel-Modus starten
+                editModeToggle.checked = false;
+                toggleEditMode();
+                generateCard(false);
+            } else {
+                // Wenn leer: Im Edit-Modus starten
+                editModeToggle.checked = true;
+                toggleEditMode();
+            }
         };
     </script>
 </body>
 </html>
+
