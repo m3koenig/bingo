@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingo Generator v0.2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+        }
+        .bingo-cell {
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 0.5rem;
+            border: 2px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.75rem; /* Etwas kleiner für längere Begriffe */
+            word-break: break-word;
+            background-color: white;
+            line-height: 1.2;
+        }
+        @media (min-width: 640px) {
+            .bingo-cell { font-size: 0.875rem; }
+        }
+        .bingo-cell.marked {
+            background-color: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+            transform: scale(0.98);
+        }
+        .bingo-cell.free {
+            background-color: #f1f5f9;
+            font-weight: bold;
+            color: #1e293b;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4 md:p-8 text-gray-800">
+
+    <div class="max-w-4xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-900">Bingo Generator</h1>
+            <p class="text-gray-600">Erstelle und teile deine eigenen Bingo-Karten.</p>
+            <div class="mt-2 text-xs font-mono bg-gray-200 inline-block px-2 py-1 rounded">v0.2.0</div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Sidebar: Input -->
+            <div class="md:col-span-1 space-y-4">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="block text-sm font-medium text-gray-700">Begriffe (einer pro Zeile)</label>
+                        <button id="demoBtn" class="text-xs text-blue-600 hover:text-blue-800 font-medium">Demo laden</button>
+                    </div>
+                    <textarea id="itemInput" rows="10" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" placeholder="Begriff 1&#10;Begriff 2&#10;..."></textarea>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Seed (optional)</label>
+                        <input type="text" id="seedInput" class="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="Zufällig wenn leer">
+                    </div>
+
+                    <button id="generateBtn" class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        Karte generieren
+                    </button>
+                </div>
+
+                <div id="shareSection" class="bg-green-50 p-4 rounded-xl border border-green-200 hidden">
+                    <p class="text-sm font-medium text-green-800 mb-2">Teilbarer Link:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="shareUrl" readonly class="flex-1 p-2 text-xs border border-green-300 rounded bg-white overflow-hidden">
+                    </div>
+                    <button id="copyBtn" class="mt-2 w-full bg-white border border-green-300 text-xs font-semibold py-1 rounded hover:bg-green-100 transition-colors">
+                        Link kopieren
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main: Bingo Card -->
+            <div class="md:col-span-2">
+                <div id="bingoContainer" class="bg-white p-4 md:p-8 rounded-2xl shadow-lg border border-gray-200">
+                    <div id="grid" class="bingo-grid">
+                        <!-- Wird per JS gefüllt -->
+                        <div class="col-span-5 text-center py-12 text-gray-400 italic">
+                            Gib mindestens 24 Begriffe ein oder lade die Demo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Demo-Daten
+         */
+        const DEMO_ITEMS = [
+            "Kaffeemaschine kaputt", "Meeting zieht sich", "Mute-Button vergessen",
+            "Jemand sagt 'Synergie'", "Bildschirm teilen klappt nicht", "Hört ihr mich?",
+            "Überstunden", "Obstkorb ist leer", "Deadline verschoben",
+            "Kind im Hintergrund", "Katze auf Tastatur", "Internet-Lag",
+            "Klimaanlage zu kalt", "Mittagspause verpasst", "Excel stürzt ab",
+            "Sarkastische E-Mail", "Tastatur-Tippen laut", "Schlechtes WLAN",
+            "Smalltalk über Wetter", "Zuspätkommen", "Feierabend!",
+            "Wochenende geplant", "Urlaubsreif", "Kuchen in der Küche",
+            "Drucker papierstau", "Passwort vergessen", "To-Do Liste voll"
+        ];
+
+        /**
+         * Seeded Random Generator (SFC32)
+         */
+        function sfc32(a, b, c, d) {
+            return function() {
+              a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
+              var t = (a + b | 0) + d | 0;
+              d = d + 1 | 0;
+              a = b ^ b >>> 9;
+              b = c + (c << 3) | 0;
+              c = (c << 21 | c >>> 11);
+              c = c + t | 0;
+              return (t >>> 0) / 4294967296;
+            }
+        }
+
+        function cyrb128(str) {
+            let h1 = 1779033703, h2 = 2778083392, h3 = 1449907477, h4 = -111616515;
+            for (let i = 0, k; i < str.length; i++) {
+                k = str.charCodeAt(i);
+                h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+                h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+                h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+                h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+            }
+            h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+            h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+            h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+            h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+            return [(h1>>>0), (h2>>>0), (h3>>>0), (h4>>>0)];
+        }
+
+        const itemInput = document.getElementById('itemInput');
+        const seedInput = document.getElementById('seedInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const demoBtn = document.getElementById('demoBtn');
+        const gridContainer = document.getElementById('grid');
+        const shareSection = document.getElementById('shareSection');
+        const shareUrlInput = document.getElementById('shareUrl');
+        const copyBtn = document.getElementById('copyBtn');
+
+        function shuffle(array, seed) {
+            const seedData = cyrb128(seed);
+            const rand = sfc32(seedData[0], seedData[1], seedData[2], seedData[3]);
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex != 0) {
+                randomIndex = Math.floor(rand() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        }
+
+        function generateCard() {
+            const text = itemInput.value.trim();
+            let items = text.split('\n').map(i => i.trim()).filter(i => i !== "");
+            
+            if (items.length < 24) {
+                alert("Bitte gib mindestens 24 Begriffe ein.");
+                return;
+            }
+
+            let seed = seedInput.value.trim();
+            if (!seed) {
+                seed = Math.random().toString(36).substring(7);
+                seedInput.value = seed;
+            }
+
+            const shuffled = shuffle([...items], seed);
+            const cardItems = shuffled.slice(0, 24);
+            cardItems.splice(12, 0, "FREIFELD"); 
+
+            renderGrid(cardItems);
+            updateUrl(text, seed);
+        }
+
+        function renderGrid(items) {
+            gridContainer.innerHTML = '';
+            items.forEach((item, index) => {
+                const cell = document.createElement('div');
+                cell.className = 'bingo-cell rounded-md shadow-sm border hover:border-blue-300';
+                if (index === 12) {
+                    cell.classList.add('free');
+                    cell.innerText = "⭐ FREI";
+                } else {
+                    cell.innerText = item;
+                    cell.onclick = () => cell.classList.toggle('marked');
+                }
+                gridContainer.appendChild(cell);
+            });
+        }
+
+        function updateUrl(items, seed) {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const encodedItems = btoa(unescape(encodeURIComponent(items)));
+            const url = `${baseUrl}?seed=${encodeURIComponent(seed)}&items=${encodedItems}`;
+            
+            shareUrlInput.value = url;
+            shareSection.classList.remove('hidden');
+            window.history.replaceState({}, '', url);
+        }
+
+        function loadFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const seed = params.get('seed');
+            const encodedItems = params.get('items');
+
+            if (seed && encodedItems) {
+                try {
+                    const decodedItems = decodeURIComponent(escape(atob(encodedItems)));
+                    itemInput.value = decodedItems;
+                    seedInput.value = seed;
+                    generateCard();
+                } catch (e) {
+                    console.error("URL-Parsing-Fehler", e);
+                }
+            }
+        }
+
+        // Event Listeners
+        generateBtn.onclick = generateCard;
+        
+        demoBtn.onclick = () => {
+            itemInput.value = DEMO_ITEMS.join('\n');
+            seedInput.value = "DemoSeed";
+            generateCard();
+        };
+
+        copyBtn.onclick = () => {
+            shareUrlInput.select();
+            document.execCommand('copy');
+            const originalText = copyBtn.innerText;
+            copyBtn.innerText = "Kopiert!";
+            setTimeout(() => copyBtn.innerText = originalText, 2000);
+        };
+
+        window.onload = loadFromUrl;
+    </script>
+</body>
+</html>
