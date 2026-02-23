@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Generator v0.5.0</title>
+    <title>Bingo Generator v0.6.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .bingo-grid {
@@ -22,11 +22,19 @@
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             font-size: 0.75rem;
-            word-break: break-word;
             background-color: white;
-            line-height: 1.2;
             user-select: none;
+            overflow: hidden;
         }
+        
+        .cell-content {
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 2px;
+        }
+
         @media (min-width: 640px) {
             .bingo-cell { font-size: 0.875rem; }
         }
@@ -43,7 +51,7 @@
             border-style: dashed;
         }
         
-        /* Zeilennummern-Styling */
+        /* Editor-Styling */
         .editor-container {
             position: relative;
             display: flex;
@@ -63,6 +71,8 @@
             line-height: 1.5rem;
             user-select: none;
             border-right: 1px solid #e2e8f0;
+            /* Verhindert horizontales Scrollen der Nummern */
+            flex-shrink: 0;
         }
         .line-numbers span {
             display: block;
@@ -78,6 +88,9 @@
             font-size: 0.875rem;
             line-height: 1.5rem;
             resize: none;
+            /* Neu in v0.6.1: Kein Zeilenumbruch, horizontaler Scroll */
+            white-space: pre;
+            overflow-x: auto;
             overflow-y: auto;
         }
         
@@ -85,6 +98,7 @@
             .no-print { display: none !important; }
             body { background: white; padding: 0; }
             .lg\:col-span-8 { width: 100%; }
+            .bingo-cell { border-color: #000; }
         }
     </style>
 </head>
@@ -94,11 +108,10 @@
         <header class="mb-8 text-center no-print">
             <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Bingo Generator</h1>
             <p class="text-gray-500 mt-1">Erstelle, teile und spiele Bingo mit deinen Freunden.</p>
-            <div class="mt-3 text-[10px] font-mono bg-gray-200 text-gray-600 inline-block px-2 py-0.5 rounded uppercase tracking-wider">Version 0.5.0</div>
+            <div class="mt-3 text-[10px] font-mono bg-gray-200 text-gray-600 inline-block px-2 py-0.5 rounded uppercase tracking-wider">Version 0.6.1</div>
         </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <!-- Sidebar: Konfiguration -->
             <div class="lg:col-span-4 space-y-6 no-print">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                     <div class="flex justify-between items-center mb-3">
@@ -113,7 +126,8 @@
                         <div id="lineNumberGutter" class="line-numbers">
                             <span>1</span>
                         </div>
-                        <textarea id="itemInput" rows="10" placeholder="Ein Begriff pro Zeile..." spellcheck="false"></textarea>
+                        <!-- wrap="off" deaktiviert den automatischen Zeilenumbruch -->
+                        <textarea id="itemInput" rows="10" placeholder="Ein Begriff pro Zeile..." spellcheck="false" wrap="off"></textarea>
                     </div>
                     
                     <div class="mt-4">
@@ -132,11 +146,10 @@
                 <div id="shareSection" class="bg-blue-50 p-5 rounded-2xl border border-blue-100 hidden">
                     <h3 class="text-sm font-bold text-blue-900 mb-3 flex items-center">🔗 Karte teilen</h3>
                     <input type="text" id="shareUrl" readonly class="w-full p-2 text-xs border border-blue-200 rounded-lg bg-white/80 mb-3">
-                    <button id="copyBtn" class="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700 transition-colors">Link kopieren</button>
+                    <button id="copyBtn" class="w-full bg-blue-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-blue-700">Link kopieren</button>
                 </div>
             </div>
 
-            <!-- Main: Bingo Display -->
             <div class="lg:col-span-8">
                 <div id="bingoContainer" class="bg-white p-4 md:p-10 rounded-3xl shadow-xl border border-gray-100">
                     <div id="grid" class="bingo-grid">
@@ -146,7 +159,7 @@
                     </div>
                     
                     <div class="mt-8 flex justify-between items-center text-xs text-gray-400 border-t pt-4">
-                        <span id="cardInfo">Version 0.5.0</span>
+                        <span id="cardInfo">Version 0.6.1</span>
                         <button onclick="window.print()" class="no-print hover:text-gray-600 flex items-center gap-1">
                             <span>🖨️</span> Drucken
                         </button>
@@ -166,7 +179,6 @@
         const shareSection = document.getElementById('shareSection');
         const shareUrlInput = document.getElementById('shareUrl');
 
-        // --- Editor Funktionen ---
         function updateLineNumbers() {
             const lines = itemInput.value.split('\n').length;
             let gutterContent = '';
@@ -178,10 +190,10 @@
 
         itemInput.oninput = updateLineNumbers;
         itemInput.onscroll = () => {
+            // Nur vertikalen Scroll synchronisieren
             gutter.scrollTop = itemInput.scrollTop;
         };
 
-        // --- Zufall & Hash Funktionen ---
         function sfc32(a, b, c, d) {
             return function() {
               a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0; 
@@ -207,20 +219,13 @@
             return [(h1>>>0), (h2>>>0), (h3>>>0), (h4>>>0)];
         }
 
-        /**
-         * Reinigt einen String von führenden Markdown-Bullets
-         */
         function cleanItem(str) {
             return str.replace(/^-\s*/, '').trim();
         }
 
-        /**
-         * Mischt die Begriffe direkt im Textfeld (Echter Zufall, nicht seed-basiert)
-         */
         function shuffleTextarea() {
             const lines = itemInput.value.split('\n').filter(l => l.trim() !== "");
             if (lines.length === 0) return;
-            
             for (let i = lines.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [lines[i], lines[j]] = [lines[j], lines[i]];
@@ -243,8 +248,6 @@
 
             const seedData = cyrb128(seed);
             const rand = sfc32(seedData[0], seedData[1], seedData[2], seedData[3]);
-            
-            // Seeded shuffle
             const shuffled = [...items].sort(() => rand() - 0.5);
             const cardItems = shuffled.slice(0, 24);
             cardItems.splice(12, 0, "FREI");
@@ -253,8 +256,16 @@
             cardItems.forEach((item, index) => {
                 const cell = document.createElement('div');
                 cell.className = `bingo-cell rounded-xl border ${index === 12 ? 'free' : ''}`;
-                cell.innerText = index === 12 ? "⭐" : item;
-                if(index !== 12) cell.onclick = () => cell.classList.toggle('marked');
+                const content = document.createElement('div');
+                content.className = 'cell-content';
+                if (index === 12) {
+                    content.innerText = "⭐";
+                } else {
+                    content.innerText = item;
+                    cell.title = item;
+                    cell.onclick = () => cell.classList.toggle('marked');
+                }
+                cell.appendChild(content);
                 gridContainer.appendChild(cell);
             });
 
@@ -264,23 +275,14 @@
                     const urlObj = new URL(window.location.origin + window.location.pathname);
                     urlObj.searchParams.set('seed', seed);
                     urlObj.searchParams.set('items', encoded);
-                    
                     const finalUrl = urlObj.toString();
                     shareUrlInput.value = finalUrl;
                     shareSection.classList.remove('hidden');
-                    
-                    try {
-                        window.history.replaceState({ seed, items: encoded }, '', finalUrl);
-                    } catch (historyErr) {
-                        console.warn("Sandbox restriction: Could not update browser URL.");
-                    }
-                } catch (err) {
-                    console.error("Link generation error:", err);
-                }
+                    try { window.history.replaceState({ seed, items: encoded }, '', finalUrl); } catch (e) {}
+                } catch (err) {}
             }
         }
 
-        // --- Event Listeners ---
         document.getElementById('generateBtn').onclick = () => generateCard(true);
         document.getElementById('shuffleListBtn').onclick = shuffleTextarea;
         document.getElementById('demoBtn').onclick = () => {
@@ -302,15 +304,10 @@
         window.onload = () => {
             const params = new URLSearchParams(window.location.search);
             const urlItems = params.get('items');
-            const urlSeed = params.get('seed');
-
             if (urlItems) {
-                try {
-                    itemInput.value = decodeURIComponent(escape(atob(urlItems)));
-                } catch (e) { console.error("URL decoding failed"); }
+                try { itemInput.value = decodeURIComponent(escape(atob(urlItems))); } catch (e) {}
             }
-            if (urlSeed) seedInput.value = urlSeed;
-            
+            if (params.get('seed')) seedInput.value = params.get('seed');
             updateLineNumbers();
             if (itemInput.value) generateCard(false);
         };
