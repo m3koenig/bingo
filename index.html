@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Generator v0.9.0</title>
+    <title>Bingo Generator v0.10.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .bingo-grid {
@@ -132,7 +132,7 @@
         <header class="mb-8 flex flex-col md:flex-row justify-between items-center no-print gap-4">
             <div class="text-center md:text-left">
                 <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Bingo Generator</h1>
-                <p class="text-gray-500 text-sm">Version 0.9.0 — Erstellen & Spielen</p>
+                <p class="text-gray-500 text-sm">Version 0.10.0 — Custom Joker & Sharing</p>
             </div>
             
             <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-200">
@@ -156,6 +156,18 @@
                             <option value="4">4x4 (16)</option>
                             <option value="5" selected>5x5 (24 + Frei)</option>
                         </select>
+                    </div>
+
+                    <!-- NEU: Custom Joker (Freifeld) -->
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Joker Emoji/Text</label>
+                            <input type="text" id="freeSpaceInput" class="w-full p-2 border border-gray-200 rounded-lg text-sm" placeholder="⭐">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Joker Bild URL</label>
+                            <input type="text" id="freeSpaceImgInput" class="w-full p-2 border border-gray-200 rounded-lg text-sm" placeholder="https://...">
+                        </div>
                     </div>
 
                     <div class="flex justify-between items-center mb-3">
@@ -220,6 +232,8 @@
         const gutter = document.getElementById('lineNumberGutter');
         const seedInput = document.getElementById('seedInput');
         const gridSizeSelect = document.getElementById('gridSizeSelect');
+        const freeSpaceInput = document.getElementById('freeSpaceInput');
+        const freeSpaceImgInput = document.getElementById('freeSpaceImgInput');
         const gridContainer = document.getElementById('grid');
         const sidebar = document.getElementById('sidebar');
         const mainDisplay = document.getElementById('mainDisplay');
@@ -317,6 +331,10 @@
             const hasFreeSpace = size % 2 !== 0;
             const itemsNeeded = hasFreeSpace ? totalCells - 1 : totalCells;
 
+            // Joker Content
+            const freeText = freeSpaceInput.value.trim() || "⭐";
+            const freeImg = freeSpaceImgInput.value.trim();
+
             if (items.length < itemsNeeded && shouldUpdateUrl) {
                 alert(`Min. ${itemsNeeded} Begriffe benötigt!`);
                 return;
@@ -344,13 +362,20 @@
                 cell.className = `bingo-cell rounded-xl border ${isFree ? 'free' : ''}`;
                 const content = document.createElement('div');
                 content.className = 'cell-content';
+                
                 if (isFree) {
-                    content.innerHTML = '<span class="text-xl">⭐</span>';
+                    if (freeImg) {
+                        content.innerHTML = `<img src="${freeImg}" class="w-full h-full object-contain pointer-events-none" onerror="this.parentElement.innerHTML='⚠️'">`;
+                    } else {
+                        content.innerHTML = `<span class="text-xl">${freeText}</span>`;
+                    }
+                    cell.onclick = () => cell.classList.toggle('marked');
                 } else {
                     content.innerText = item;
                     cell.title = item;
                     cell.onclick = () => cell.classList.toggle('marked');
                 }
+                
                 cell.appendChild(content);
                 gridContainer.appendChild(cell);
                 if (!isFree) autoScaleFont(cell, content);
@@ -365,6 +390,9 @@
                     urlObj.searchParams.set('seed', seed);
                     urlObj.searchParams.set('items', encoded);
                     urlObj.searchParams.set('size', size);
+                    if (freeText !== "⭐") urlObj.searchParams.set('ft', btoa(unescape(encodeURIComponent(freeText))));
+                    if (freeImg) urlObj.searchParams.set('fi', btoa(freeImg));
+                    
                     const finalUrl = urlObj.toString();
                     shareUrlInput.value = finalUrl;
                     shareSection.classList.remove('hidden');
@@ -412,12 +440,20 @@
             const urlItems = params.get('items');
             const urlSize = params.get('size');
             const urlSeed = params.get('seed');
+            const urlFreeText = params.get('ft');
+            const urlFreeImg = params.get('fi');
 
             if (urlItems) {
                 try { itemInput.value = decodeURIComponent(escape(atob(urlItems))); } catch (e) {}
             }
             if (urlSeed) seedInput.value = urlSeed;
             if (urlSize) gridSizeSelect.value = urlSize;
+            if (urlFreeText) {
+                try { freeSpaceInput.value = decodeURIComponent(escape(atob(urlFreeText))); } catch (e) {}
+            }
+            if (urlFreeImg) {
+                try { freeSpaceImgInput.value = atob(urlFreeImg); } catch (e) {}
+            }
             
             updateLineNumbers();
 
@@ -433,6 +469,12 @@
             }
         };
     </script>
+    <!-- Change Log v0.10.0:
+    - NEU: Eingabefeld für individuelles Joker-Emoji/Text hinzugefügt.
+    - NEU: Eingabefeld für Joker-Bild-URL hinzugefügt.
+    - NEU: Zentrumsfeld (Joker) ist nun ebenfalls markierbar (Klick-Event aktiviert).
+    - NEU: URL-Parameter für Joker-Text (ft) und Joker-Bild (fi) ergänzt für Sharing.
+    - FIX: Bild-Handling innerhalb der Zelle optimiert (object-contain).
+    -->
 </body>
 </html>
-
